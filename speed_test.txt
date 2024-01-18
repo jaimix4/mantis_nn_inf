@@ -1,0 +1,23 @@
+ensemble DNN
+Average time for forward pass for k = 1, n_cells = 32500; t -> 8.765 ms
+Average time for forward pass for k = 2, n_cells = 32500; t -> 14.332 ms
+Average time for forward pass for k = 3, n_cells = 32500; t -> 19.625 ms
+Average time for forward pass for k = 4, n_cells = 32500; t -> 25.064 ms
+Average time for forward pass for k = 5, n_cells = 32500; t -> 31.068 ms
+Average time for forward pass for k = 6, n_cells = 32500; t -> 35.880 ms
+Average time for forward pass for k = 7, n_cells = 32500; t -> 38.765 ms
+Average time for forward pass for k = 8, n_cells = 32500; t -> 47.175 ms
+Average time for forward pass for k = 9, n_cells = 32500; t -> 50.055 ms
+Average time for forward pass for k = 10, n_cells = 32500; t -> 54.380 ms
+
+BNN
+Average time for forward pass for k = 1, n_cells = 32500; t -> 9.325 ms
+Average time for forward pass for k = 2, n_cells = 32500; t -> 19.204 ms
+Average time for forward pass for k = 3, n_cells = 32500; t -> 27.366 ms
+Average time for forward pass for k = 4, n_cells = 32500; t -> 37.395 ms
+Average time for forward pass for k = 5, n_cells = 32500; t -> 46.391 ms
+Average time for forward pass for k = 6, n_cells = 32500; t -> 55.494 ms
+Average time for forward pass for k = 7, n_cells = 32500; t -> 65.604 ms
+Average time for forward pass for k = 8, n_cells = 32500; t -> 75.248 ms
+Average time for forward pass for k = 9, n_cells = 32500; t -> 85.015 ms
+Average time for forward pass for k = 10, n_cells = 32500; t -> 93.492 ms
