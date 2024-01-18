@@ -46,7 +46,7 @@ import matplotlib.pyplot as plt
 # CONFIGURATION PARAMETERS
 
 config_params = {
-        'batch_size': {'values': [20000]}, #SWEEPED
+        'batch_size': {'values': [10000]}, #SWEEPED
 
         'epochs': {'values': [80]},  #SWEEPED
 
@@ -74,7 +74,7 @@ config_params = {
         'l2_regularizer' : {'value' : 1e-8},
 
         # one for every input 
-        'gau_noise': {'value': [0.02, 0.02, 0.02, 0.02]},
+        'gau_noise': {'value': [0.01, 0.01, 0.01, 0.01]},
 
         'num_nodes' : { 'values' : [100]},
 
@@ -138,7 +138,7 @@ data.get_scalers_crazy_nn(inputs_labels, inputs_prepro, inputs_scaler, \
 # START A WnB RUN 
 
 # model project or "last name"
-project_name = 'experiments_9'
+project_name = 'experiments_10'
 
 run = wandb.init(project=project_name, config=config_params)
 
@@ -146,7 +146,7 @@ run = wandb.init(project=project_name, config=config_params)
 folder_name_saved_model = run.name
 
 # model local location 
-model_location = 'models_v2/' + project_name + '/' + folder_name_saved_model 
+model_location = 'models_v3/' + project_name + '/' + folder_name_saved_model 
 
 # model_location = 'models_v2/experiment_crazy/model-18'
 # [optional] use wandb.config as your config
@@ -489,7 +489,9 @@ batch_size = config_params['batch_size']
 train_generator = data.MyDataGenerator_CrazyNN(x=X_train_real_unique, y=y_train_real, batch_size=batch_size, \
     gau_noise=config_params['gau_noise'], \
     inputs_prepro = inputs_prepro, transform_input = transform_input, \
-    outputs_prepro = outputs_prepro, transform_output = transform_output)
+    outputs_prepro = outputs_prepro, transform_output = transform_output,
+    min_max_scale = config_params['min_max_scale'],
+    rec3_class = config_params['rec3_class'])
 
 
 # FIRST STAGE OF TRAINING 

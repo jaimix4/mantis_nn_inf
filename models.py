@@ -15,6 +15,7 @@ import keras.backend as K
 import sys
 
 # new very useful 
+# class for creating a pre processing layer
 class Pre_processingLayer(Layer):
 
     def __init__(self, inputs_prepo, inputs_mean_params, inputs_scale_params, **kwargs):
@@ -39,6 +40,7 @@ class Pre_processingLayer(Layer):
         return config
 
 # new very useful 
+# class for creating a post processing layer
 class Post_processingLayer(Layer):
 
     def __init__(self, outputs_prepo, outputs_min_params, outputs_scale_params, **kwargs):
@@ -63,7 +65,7 @@ class Post_processingLayer(Layer):
         })
         return config
 
-# new very useful 
+# function to load model from folder  
 def load_model(folder_name):
     
     # load config file 
@@ -286,14 +288,12 @@ def MLP_BNN_model_book_prepost(n_inputs, n_outputs, num_layers, num_nodes, last_
 
     return model
 
-    # CUSTOM LOSS FUNCTION
 
-# probably this needs to be set back to custom_loss if things start not to work
+# CUSTOM LOSS FUNCTION dummy
+# this custom_loss function is used only to set it in an already train network
+# for exporting, the actual loss function is the one inside the model definition
 def custom_loss(y_true, y_pred):
-    # print('printing y_true')
 
-    # the *(4.0*K.pow(K.ones_like(y_true[:, 0])*0.5, y_true[:, 0]) + 1)
-    # applies a weight compensation for low values 
     
     regression_loss_Te = K.abs(y_pred[:, 0] - y_true[:, 0])*(4.0*K.pow(K.ones_like(y_true[:, 0])*0.5, y_true[:, 0]) + 1)#(5 - 0.4*y_true[:, 0])
 
@@ -322,6 +322,7 @@ def custom_loss(y_true, y_pred):
 def MLP_BNN_model_book_regression_classification(n_inputs, n_outputs, num_layers, num_nodes, \
     last_bayes_layer, act_fn, l2_reg, kernel_div, n_class, custom_loss_for_inference = True):
 
+    # input layer 
     input_single = Input(shape=(n_inputs,))
     x = Dense(num_nodes, activation=act_fn, kernel_initializer='he_uniform', \
         kernel_regularizer=l2(l2_reg), bias_regularizer=l2(l2_reg))(input_single)
@@ -333,8 +334,9 @@ def MLP_BNN_model_book_regression_classification(n_inputs, n_outputs, num_layers
         # x = layers.Dropout(0.1)(x)
     def relu_advanced(x):
         return K.relu(x, max_value=5.0)
+    # last bayesian layer with just kernel as random variable
     # x = tfp.layers.DenseFlipout(last_bayes_layer, activation=relu_advanced, kernel_divergence_fn=kernel_div)(x)
-
+    # last bayesian layer with kernel and bias as random variables
     x = tfp.layers.DenseFlipout(last_bayes_layer, activation='relu', kernel_divergence_fn=kernel_div, bias_prior_fn = tfp.layers.default_multivariate_normal_fn, \
      bias_divergence_fn = kernel_div)(x)
 
@@ -345,45 +347,11 @@ def MLP_BNN_model_book_regression_classification(n_inputs, n_outputs, num_layers
         #bias_prior_fn = tfp.layers.default_multivariate_normal_fn, bias_divergence_fn = kernel_div)(x)
     output_classification = Dense(n_class, activation='softmax', name = 'out_classification')(x)
 
-
     model_output = concatenate([output_regression, output_classification])
 
     def custom_loss(y_true, y_pred):
-        # print('printing y_true')
 
-        # the *(4.0*K.pow(K.ones_like(y_true[:, 0])*0.5, y_true[:, 0]) + 1)
-        # applies a weight compensation for low values 
         
-        # regression_loss_Te = K.abs(y_pred[:, 0] - y_true[:, 0])*y_true[:, 5]# *(2.0*K.pow(K.ones_like(y_true[:, 0])*0.5, y_true[:, 0]) + 1)#(5 - 0.4*y_true[:, 0])
-
-        # regression_loss_ne = K.abs(y_pred[:, 1] - y_true[:, 1])*(2.0*K.pow(K.ones_like(y_true[:, 1])*0.5, y_true[:, 1]) + 1)#*(5 - 0.4*y_true[:, 1])
-
-        # regression_loss_no = K.abs(y_pred[:, 2] - y_true[:, 2])*(2.0*K.pow(K.ones_like(y_true[:, 2])*0.5, y_true[:, 2]) + 1)*y_true[:, 5]
-
-        # regression_loss_Irate = K.abs(y_pred[:, 3] - y_true[:, 3])*(4.0*K.pow(K.ones_like(y_true[:, 3])*0.5, y_true[:, 3]) + 1)*y_true[:, 5]
-        
-        # regression_loss_Rrate = K.abs(y_pred[:, 4] - y_true[:, 4])*(4.0*K.pow(K.ones_like(y_true[:, 4])*0.5, y_true[:, 4]) + 1)#*(5 - 0.4*y_true[:, 4])
-
-        #loss_no_rec = (regression_loss_no + regression_loss_Irate)*(y_true[:, 5])
-
-        #loss_rec = (regression_loss_Te + regression_loss_ne + regression_loss_Rrate)#*(1 + (2/3)*( 1 - y_true[:, 5]))
-
-        # regression_loss = (regression_loss_Te + regression_loss_ne + \
-        #     regression_loss_no + regression_loss_Irate + \
-        #         regression_loss_Rrate)
-
-        #regression_loss = loss_no_rec + loss_rec
-        # regression_loss = (K.mean_absolute_error(regression_loss_Te) + K.mean_absolute_error(regression_loss_ne) + \
-        #     K.mean_absolute_error(regression_loss_no) + K.mean_absolute_error(regression_loss_Irate) + K.mean_absolute_error(regression_loss_Rrate))/5
-
-        #mae = K.zeros_like(y_pred[:, :5])
-
-        #mae_loss = K.mean_absolute_error()
-
-        ########## MAPE 
-
-        # regression_loss_Te = K.abs(y_pred[:, 0] - y_true[:, 0])*y_pred[:, 6]*3 # / K.maximum(y_true[:, 0], 1e-10)
-
         regression_loss_Te = K.abs(y_pred[:, 0] - y_true[:, 0])*(2.0*K.pow(K.ones_like(y_true[:, 0])*0.5, y_true[:, 0]) + 1) #*y_true[:, 5] + \
             #K.abs(y_pred[:, 0] - y_true[:, 0])*(1 - y_true[:, 5]) * K.random_uniform(shape=(1,), minval=0.0, maxval=5.0)
 
@@ -398,18 +366,17 @@ def MLP_BNN_model_book_regression_classification(n_inputs, n_outputs, num_layers
         # this output is ignore if it is in the non-ionized regime (ignores high values)
         regression_loss_Rrate = K.abs(y_pred[:, 4] - y_true[:, 4])*y_true[:, 5]*(5.0*K.pow(K.ones_like(y_true[:, 4])*0.5, y_true[:, 4]) + 1)
 
+        # doing MAE of losses 
         regression_loss = K.mean(regression_loss_Te +  regression_loss_ne + regression_loss_no + regression_loss_Irate + regression_loss_Rrate, axis = -1)
 
-        # regression_loss = regression_loss_Te +  regression_loss_ne + regression_loss_no + regression_loss_Irate + regression_loss_Rrate
-        # regression_loss = regression_loss_no + regression_loss_Irate + regression_loss_Rrate
-
+        # classification loss
         class_loss = K.sparse_categorical_crossentropy(y_true[:, 5], y_pred[:, 5:]) 
 
-        # physics_loss = K.mean(K.abs(y_pred[:, 0]*y_pred[:, 1]*y_pred[:, 4] - y_true[:, 0]*y_true[:, 1]*y_true[:, 4]))
+        # pressure loss
+        physics_loss = K.mean(K.abs(2*y_pred[:, 0]*y_pred[:, 1] - 2*y_true[:, 0]*y_true[:, 1]))
 
-        physics_loss = K.mean(K.abs(y_pred[:, 0]*y_pred[:, 1] - y_true[:, 0]*y_true[:, 1]))
-
-        return regression_loss + class_loss  + physics_loss
+        # sum of all losses 
+        return regression_loss + class_loss  + physics_loss 
 
     model = Model(inputs = input_single, outputs = model_output)
 

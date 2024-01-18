@@ -819,7 +819,7 @@ class MyDataGenerator(Sequence):
 ##################################################
 class MyDataGenerator_CrazyNN(Sequence):
     def __init__(self, x, y, batch_size, gau_noise, \
-        inputs_prepro, transform_input, outputs_prepro, transform_output):
+        inputs_prepro, transform_input, outputs_prepro, transform_output, min_max_scale, rec3_class):
         self.x = x
         self.y = y
         self.batch_size = batch_size
@@ -831,6 +831,9 @@ class MyDataGenerator_CrazyNN(Sequence):
 
         self.outputs_prepro = outputs_prepro
         self.transform_output = transform_output
+
+        self.min_max_scale = min_max_scale
+        self.rec3_class = rec3_class
 
     def __len__(self):
         return int(np.ceil(len(self.x) / self.batch_size))
@@ -845,9 +848,12 @@ class MyDataGenerator_CrazyNN(Sequence):
         batch_x = self.x[self.indexes[start:end]]
         batch_y = self.y[self.indexes[start:end]]
 
-        batch_y_classification = batch_y[:, -1].copy()*10
-        batch_y_classification[batch_y_classification < 9.5] = 1
-        batch_y_classification[batch_y_classification >= 9.5] = 0
+        # Here this is not taking into account that I can use a different 
+        # MinMaxScale for the the inputs and outputs,
+        # this needs to be corrected in the future
+        batch_y_classification = batch_y[:, -1].copy()*self.min_max_scale[-1]
+        batch_y_classification[batch_y_classification < self.min_max_scale[-1]*self.rec3_class] = 1
+        batch_y_classification[batch_y_classification >= self.min_max_scale[-1]*self.rec3_class] = 0
         batch_y_classification.astype(int)
         
         # Apply Gaussian noise to the batch input data
@@ -873,10 +879,12 @@ class MyDataGenerator_CrazyNN(Sequence):
         random_arr_706 = np.random.randn(batch_x.shape[0], 1).reshape(-1)
         # noise from 668
         random_arr_668 = np.random.randn(batch_x.shape[0], 1).reshape(-1)
+
         # noise from He728/706
-        batch_x[:, -2] = batch_x[:, -2] + batch_x[:, -2] * self.gau_noise[-2] * (random_arr_728/1)#random_arr_706)
+        batch_x[:, -2] = batch_x[:, -2] * (1 + self.gau_noise[-2]*random_arr_728)/(1 + self.gau_noise[-2]*random_arr_706)
+        
         # noise from He728/668
-        batch_x[:, -1] = batch_x[:, -1] + batch_x[:, -1] * self.gau_noise[-1] * (random_arr_728/1)#random_arr_668)
+        batch_x[:, -1] = batch_x[:, -1] * (1 + self.gau_noise[-1]*random_arr_728)/(1 + self.gau_noise[-1]*random_arr_668)
 
 
         batch_x =  \
