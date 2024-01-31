@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 import pyarrow.parquet as pq
 
-data_folder = 'raw_datasets/dataset_exp_master_2_'
+data_folder = 'raw_datasets/dataset_exp_master_'
 inputs_labels = ['emi_3-2', 'emi_5-2', '728/706', '728/668']
 outputs_labels = ['Te', 'ne', 'no', 'Irate', 'Rrate', 'Brec3/B3']
 
@@ -35,7 +35,7 @@ X = np.vstack((X_train, X_val, X_test))
 y = np.vstack((y_train, y_val, y_test))
 
 # make plot latex
-rc('font',**{'family':'serif','serif':['Computer Modern Serif'], 'size': 10})
+rc('font',**{'family':'serif','serif':['Computer Modern Serif'], 'size': 9})
 rc('text', usetex=True)
 
 
@@ -48,7 +48,7 @@ Te = y[:200000, 0].copy()
 # fig = plt.figure(figsize=(5, 4), dpi = 300)
 
 # 
-split = 0.97
+split = 0.95
 
 # Size in centimeters
 width_cm = 8
@@ -97,7 +97,7 @@ axs[1].plot(rec3, Te, 'go', markersize=0.3, alpha=0.2) #, label='r$T_e$')
 axs[1].set_yscale('log')
 axs[1].axvline(x=split, color='k', linestyle='--', linewidth=1.5, label = str(split))
 axs[1].set_ylabel(r'$T_e \: \: [{\rm eV}]$') 
-axs[1].set_xlabel(r'$D^{3}_{\rm rec}$') 
+axs[1].set_xlabel(r'$D^{\rm rec}_{3 \rightarrow 2}$') 
 # axs[1].legend()
 axs[1].set_xlim([-0.02, 1.02])
 # axs[0].set_xticklabels([' ', ' ', ' '])
@@ -112,7 +112,7 @@ axs[1].set_xlim([-0.02, 1.02])
 
 #
 fig.subplots_adjust(hspace=0.03)
-plt.savefig('figures_paper/figure_irate_d3rec.png', dpi = 300, bbox_inches='tight', transparent = True)
+plt.savefig('figures_paper/figure_irate_d3rec.png', dpi = 600, bbox_inches='tight', transparent = True)
 #plt.show()
 
 

@@ -46,7 +46,7 @@ import matplotlib.pyplot as plt
 # CONFIGURATION PARAMETERS
 
 config_params = {
-        'batch_size': {'values': [10000]}, #SWEEPED
+        'batch_size': {'values': [20000]}, #SWEEPED
 
         'epochs': {'values': [80]},  #SWEEPED
 
@@ -74,7 +74,7 @@ config_params = {
         'l2_regularizer' : {'value' : 1e-8},
 
         # one for every input 
-        'gau_noise': {'value': [0.01, 0.01, 0.01, 0.01]},
+        'gau_noise': {'value': [0.03, 0.03, 0.03, 0.03]},
 
         'num_nodes' : { 'values' : [100]},
 
@@ -88,7 +88,9 @@ config_params = {
 
         'earlystopping_patience' : { 'value' : 4},
 
-        'rec3_class' : { 'value' : 0.97}
+        'rec3_class' : { 'value' : 0.95},
+
+        'batch_norm' : { 'value' : False},
 
      }
 
@@ -138,7 +140,7 @@ data.get_scalers_crazy_nn(inputs_labels, inputs_prepro, inputs_scaler, \
 # START A WnB RUN 
 
 # model project or "last name"
-project_name = 'experiments_10'
+project_name = 'experiments_12'
 
 run = wandb.init(project=project_name, config=config_params)
 
@@ -232,7 +234,8 @@ if config_params['model'] == 'MLP_BNN_model_Denseflipout_multi_output':
                                         act_fn = config_params['activation_fn'], \
                                         l2_reg = config_params['l2_regularizer'], \
                                         kernel_div = kernel_divergence_fn,\
-                                        n_class = 2)
+                                        n_class = 2,
+                                        batch_norm = config_params['batch_norm'])
 
 # visualize model
 print(model.summary())

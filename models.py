@@ -118,6 +118,11 @@ def load_model(folder_name):
 
         last_bayes_layer = config_params['last_bayes_layer']
 
+        try:
+            batch_norm = config_params['batch_norm']
+        except:
+            batch_norm = True
+
         # check if taking out that X_train.shape[0] is fine
         #kernel_divergence_fn=lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (X_train.shape[0] * 1.0)
         kernel_divergence_fn=lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (1e4 * 1.0)
@@ -128,6 +133,7 @@ def load_model(folder_name):
                                         l2_reg = config_params['l2_regularizer'], \
                                         kernel_div = kernel_divergence_fn,\
                                         n_class = 2, \
+                                        batch_norm = batch_norm, \
                                         custom_loss_for_inference=False)
         
         model.summary()
@@ -320,17 +326,19 @@ def custom_loss(y_true, y_pred):
     return regression_loss + class_loss
 
 def MLP_BNN_model_book_regression_classification(n_inputs, n_outputs, num_layers, num_nodes, \
-    last_bayes_layer, act_fn, l2_reg, kernel_div, n_class, custom_loss_for_inference = True):
+    last_bayes_layer, act_fn, l2_reg, kernel_div, n_class, batch_norm, custom_loss_for_inference = True):
 
     # input layer 
     input_single = Input(shape=(n_inputs,))
     x = Dense(num_nodes, activation=act_fn, kernel_initializer='he_uniform', \
         kernel_regularizer=l2(l2_reg), bias_regularizer=l2(l2_reg))(input_single)
-    x = BatchNormalization()(x)
+    if batch_norm:
+        x = BatchNormalization()(x)
     for i in range(num_layers - 2):
         x = Dense(num_nodes, activation=act_fn, kernel_initializer='he_uniform', \
             kernel_regularizer=l2(l2_reg), bias_regularizer=l2(l2_reg))(x)
-        x = BatchNormalization()(x)
+        if batch_norm:
+            x = BatchNormalization()(x)
         # x = layers.Dropout(0.1)(x)
     def relu_advanced(x):
         return K.relu(x, max_value=5.0)
@@ -352,10 +360,11 @@ def MLP_BNN_model_book_regression_classification(n_inputs, n_outputs, num_layers
     def custom_loss(y_true, y_pred):
 
         
-        regression_loss_Te = K.abs(y_pred[:, 0] - y_true[:, 0])*(2.0*K.pow(K.ones_like(y_true[:, 0])*0.5, y_true[:, 0]) + 1) #*y_true[:, 5] + \
-            #K.abs(y_pred[:, 0] - y_true[:, 0])*(1 - y_true[:, 5]) * K.random_uniform(shape=(1,), minval=0.0, maxval=5.0)
+        regression_loss_Te = K.abs(y_pred[:, 0] - y_true[:, 0])*(2.0*K.pow(K.ones_like(y_true[:, 0])*0.5, y_true[:, 0]) + 1) \
+            *(y_true[:, 5] + (1 - y_true[:, 5])*(1/5))
 
-        regression_loss_ne = K.abs(y_pred[:, 1] - y_true[:, 1])*(2.0*K.pow(K.ones_like(y_true[:, 1])*0.5, y_true[:, 1]) + 1)
+        regression_loss_ne = K.abs(y_pred[:, 1] - y_true[:, 1])*(2.0*K.pow(K.ones_like(y_true[:, 1])*0.5, y_true[:, 1]) + 1)\
+            *(y_true[:, 5] + (1 - y_true[:, 5])*(1/5))
 
         # this output is ignore if it is in the non-ionized regime
         regression_loss_no = K.abs(y_pred[:, 2] - y_true[:, 2])*y_true[:, 5]*(2.0*K.pow(K.ones_like(y_true[:, 2])*0.5, y_true[:, 2]) + 1)
@@ -830,6 +839,16 @@ class BNN_crazy_ensemble_DNN():
         input_single = Input(shape=(n_inputs,), name = 'input')
         input_single_prepro = Pre_processingLayer(inputs_prepo, inputs_mean_params, inputs_scale_params)(input_single)
 
+        # code for figuring out if self.model_bnn has batch normalization layers
+        batch_norm_present = False
+        for idx in range(len(self.model_bnn.layers)):
+            if self.model_bnn.layers[idx].__class__.__name__ == 'BatchNormalization':
+                batch_norm_present = True
+
+
+        print('batch norm present')
+        print(batch_norm_present)
+
         # NETWORK 1
         for i in range(num_networks):
 
@@ -839,10 +858,12 @@ class BNN_crazy_ensemble_DNN():
             #x = Pre_processingLayer(inputs_prepo, inputs_mean_params, inputs_scale_params)(input_single)
             x = Dense(num_nodes, activation=act_fn)(input_single_prepro)
             #x = Dense(num_nodes, activation=act_fn)(x)
-            x = BatchNormalization()(x)
+            if batch_norm_present:
+                x = BatchNormalization()(x)
             for i in range(num_layers - 2):
                     x = Dense(num_nodes, activation=act_fn)(x)
-                    x = BatchNormalization()(x)
+                    if batch_norm_present:
+                        x = BatchNormalization()(x)
             # layer that branches both outputs
             x = Dense(last_bayes_layer, activation=act_fn)(x)
 
@@ -879,7 +900,11 @@ class BNN_crazy_ensemble_DNN():
         idx_og_model = 1
 
         #for idx in range(2, len(model_merged.layers) - (1 + num_networks), num_networks):
-        for idx in range(2, 2*(num_layers - 1)*num_networks + num_networks + 2, num_networks):
+        some_number = 1
+        if batch_norm_present:
+            some_number = 0
+
+        for idx in range(2, 2*(num_layers - 1)*num_networks + num_networks + 2 - some_number*num_networks*(num_layers - 1), num_networks):
 
             #idx_og_model = int((idx + 1)/num_networks - 1)
 
@@ -903,10 +928,12 @@ class BNN_crazy_ensemble_DNN():
         # print('layers')
         # print('idx if model og now')
         # print(idx_og_model)
+            
+        print("UNTIL HERE FINE")
 
         # putting weigths on multioutput layer
-        for idx in range(2*(num_layers - 1)*num_networks + num_networks + 2, \
-            (2*(num_layers - 1)*num_networks + num_networks + 2) + 2*num_networks, 2):
+        for idx in range(2*(num_layers - 1)*num_networks + num_networks + 2 - some_number*num_networks*(num_layers - 1), \
+            (2*(num_layers - 1)*num_networks + num_networks + 2) + 2*num_networks - some_number*num_networks*(num_layers - 1), 2):
 
             if self.model_bnn.layers[idx_og_model].__class__.__name__ == 'DenseFlipout':
 

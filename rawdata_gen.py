@@ -132,8 +132,8 @@ class data_gen:
         # BUT I HAVE NO IDEA HOW C CAN READ PARQUET FILES SO... 
 
         # introducing He ratios using the c file with the goto model
-        nam_tempfile_input = 'temp_tene_cfile.csv'
-        nam_tempfile_output = 'temp_tene_cfile_out.csv'
+        nam_tempfile_input = 'temp_tene_cfile_here.csv'
+        nam_tempfile_output = 'temp_tene_cfile_out_here.csv'
         np.savetxt(nam_tempfile_input, self.data[:, 4:6], delimiter=',')
 
         print('\nOutput of the c file: ')
