@@ -869,23 +869,75 @@ class MyDataGenerator_CrazyNN(Sequence):
         # random_arr = np.random.randn(batch_x.shape[0], 1).reshape(-1)
         # batch_x[:, -2] = batch_x[:, -2] + batch_x[:, -2] * self.gau_noise[-2] * random_arr
         # batch_x[:, -1] = batch_x[:, -1] + batch_x[:, -1] * self.gau_noise[-2] * random_arr
+
+        # GAUSSIAN NOISE
+        #################################################################################################################
         # noise from Da
-        batch_x[:, 0] = batch_x[:, 0] + batch_x[:, 0] * self.gau_noise[0] * np.random.randn(batch_x.shape[0], 1).reshape(-1) #random_arr
-        # noise from Db
-        batch_x[:, 1] = batch_x[:, 1] + batch_x[:, 1] * self.gau_noise[1] * np.random.randn(batch_x.shape[0], 1).reshape(-1) #random_arr
-        # noise from 728 
-        random_arr_728 = np.random.randn(batch_x.shape[0], 1).reshape(-1)
-        # noise from 706
-        random_arr_706 = np.random.randn(batch_x.shape[0], 1).reshape(-1)
-        # noise from 668
-        random_arr_668 = np.random.randn(batch_x.shape[0], 1).reshape(-1)
+        # batch_x[:, 0] = batch_x[:, 0] + batch_x[:, 0] * self.gau_noise[0] * np.random.randn(batch_x.shape[0], 1).reshape(-1) #random_arr
+        # # noise from Db
+        # batch_x[:, 1] = batch_x[:, 1] + batch_x[:, 1] * self.gau_noise[1] * np.random.randn(batch_x.shape[0], 1).reshape(-1) #random_arr
+        # # noise from 728 
+        # random_arr_728 = np.random.randn(batch_x.shape[0], 1).reshape(-1)
+        # # noise from 706
+        # random_arr_706 = np.random.randn(batch_x.shape[0], 1).reshape(-1)
+        # # noise from 668
+        # random_arr_668 = np.random.randn(batch_x.shape[0], 1).reshape(-1)
 
-        # noise from He728/706
-        batch_x[:, -2] = batch_x[:, -2] * (1 + self.gau_noise[-2]*random_arr_728)/(1 + self.gau_noise[-2]*random_arr_706)
+        # # noise from He728/706
+        # batch_x[:, -2] = batch_x[:, -2] * (1 + self.gau_noise[-2]*random_arr_728)/(1 + self.gau_noise[-2]*random_arr_706)
         
-        # noise from He728/668
-        batch_x[:, -1] = batch_x[:, -1] * (1 + self.gau_noise[-1]*random_arr_728)/(1 + self.gau_noise[-1]*random_arr_668)
+        # # noise from He728/668
+        # batch_x[:, -1] = batch_x[:, -1] * (1 + self.gau_noise[-1]*random_arr_728)/(1 + self.gau_noise[-1]*random_arr_668)
+        #################################################################################################################
 
+
+        # SYSTEMATIC ERROR, done "right"
+        #################################################################################################################
+        # single_noise = np.random.randn(batch_x.shape[0], 1).reshape(-1)
+        # # Da
+        # batch_x[:, 0] = batch_x[:, 0] + batch_x[:, 0] * self.gau_noise[0] * single_noise
+        # # Dg
+        # batch_x[:, 1] = batch_x[:, 1] + batch_x[:, 1] * self.gau_noise[1] * single_noise
+        # # He728/706
+        # batch_x[:, -2] = batch_x[:, -2] * (1 + self.gau_noise[-2]*single_noise)/(1 + self.gau_noise[-2]*single_noise)
+        # # He728/668
+        # batch_x[:, -1] = batch_x[:, -1] * (1 + self.gau_noise[-1]*single_noise)/(1 + self.gau_noise[-1]*single_noise)
+        #################################################################################################################
+
+
+        # SYSTEMATIC ERROR, done "wrong"
+        #################################################################################################################
+        single_noise = np.random.randn(batch_x.shape[0], 1).reshape(-1)
+        # Da
+        batch_x[:, 0] = batch_x[:, 0] + batch_x[:, 0] * self.gau_noise[0] * single_noise
+        # Dg
+        batch_x[:, 1] = batch_x[:, 1] + batch_x[:, 1] * self.gau_noise[1] * single_noise
+        # He728/706
+        batch_x[:, -2] = batch_x[:, -2] + batch_x[:, -2] * self.gau_noise[-2] * single_noise
+        # He728/668
+        batch_x[:, -1] = batch_x[:, -1] + batch_x[:, -1] * self.gau_noise[-1] * single_noise
+        #################################################################################################################
+
+
+        # GAUSSIAN NOISE
+        #################################################################################################################
+        # noise from Da
+        # batch_x[:, 0] = batch_x[:, 0] + batch_x[:, 0] * 0.01 * np.random.randn(batch_x.shape[0], 1).reshape(-1) #random_arr
+        # # noise from Db
+        # batch_x[:, 1] = batch_x[:, 1] + batch_x[:, 1] * 0.01 * np.random.randn(batch_x.shape[0], 1).reshape(-1) #random_arr
+        # # noise from 728 
+        # random_arr_728 = np.random.randn(batch_x.shape[0], 1).reshape(-1)
+        # # noise from 706
+        # random_arr_706 = np.random.randn(batch_x.shape[0], 1).reshape(-1)
+        # # noise from 668
+        # random_arr_668 = np.random.randn(batch_x.shape[0], 1).reshape(-1)
+
+        # # noise from He728/706
+        # batch_x[:, -2] = batch_x[:, -2] * (1 + 0.01 * random_arr_728)/(1 + 0.01 * random_arr_706)
+        
+        # # noise from He728/668
+        # batch_x[:, -1] = batch_x[:, -1] * (1 + 0.01 * random_arr_728)/(1 + 0.01 * random_arr_668)
+        ################################################################################################################
 
         batch_x =  \
             data_encoder(batch_x, \

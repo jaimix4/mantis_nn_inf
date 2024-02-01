@@ -53,9 +53,9 @@ config_params = {
         # dataset_name = 'raw_datasets/dataset_rec3_Irate_cap_1e19'
         'dataset' : {'value': 'raw_datasets/dataset_exp_master_'},
 
-        'inputs_labels' : { 'value' : ['emi_3-2', 'emi_5-2', '728/706', '728/668']}, #Da,Dg  // Da, Db, Dg
+        'inputs_labels' : { 'value' : ['emi_3-2', 'emi_5-2', '728/706', '728/668', '706/668']}, #Da,Dg  // Da, Db, Dg
 
-        'inputs_prepro' : { 'value' : [3, 3, 3, 3]},
+        'inputs_prepro' : { 'value' : [3, 3, 3, 3, 3]},
 
         'inputs_scaler' : { 'value' : 'StandardScaler'},
 
@@ -74,7 +74,7 @@ config_params = {
         'l2_regularizer' : {'value' : 1e-8},
 
         # one for every input 
-        'gau_noise': {'value': [0.03, 0.03, 0.03, 0.03]},
+        'gau_noise': {'value': [0.03, 0.03, 0.03, 0.03, 0.03]},
 
         'num_nodes' : { 'values' : [100]},
 

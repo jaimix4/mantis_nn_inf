@@ -192,4 +192,84 @@ plt.tight_layout()
 plt.savefig('figures_paper/ratios_He_evolve.png', dpi = 600, bbox_inches='tight', transparent = True)
 #plt.show()
 
+levels_He = np.geomspace(0.001, 32.0, num = 200)
+
+levels_He = np.linspace(0.001, 10.0, num = 200)
+
+# plot the ratio of the ratios
+
+plt.figure(figsize=(4,3))
+
+plt.title(r'$ {\rm He}^{\rm LRT}_{728/668} / {\rm He}^{\rm LRT}_{728/706}$', fontsize=fontsize_labels + 1)
+plt.xlabel(r'$T_e \: [{ \rm eV}]$', fontsize=fontsize_labels)
+plt.ylabel('$n_e$ [m$^{-3}$]', fontsize=fontsize_labels)
+cp = plt.contourf(Te_arr, ne_arr, 2*Te_arr*ne_arr, levels = 100, cmap = 'jet')
+plt.grid(alpha = 0.3)
+plt.colorbar(cp,format=tick.FormatStrFormatter('$%.2f$'))
+
+plt.xscale('log')
+plt.yscale('log')
+
+plt.tight_layout()
+
+plt.figure(figsize=(4,3))
+
+plt.title(r'$ {\rm He}^{\rm LRT}_{728/668} / {\rm He}^{\rm LRT}_{728/706}$', fontsize=fontsize_labels + 1)
+plt.xlabel(r'$T_e \: [{ \rm eV}]$', fontsize=fontsize_labels)
+plt.ylabel('$n_e$ [m$^{-3}$]', fontsize=fontsize_labels)
+cp = plt.contourf(Te_arr, ne_arr, He728_668_arr/He728_706_arr, levels = levels_He, cmap = 'jet')
+plt.grid(alpha = 0.3)
+plt.colorbar(cp,format=tick.FormatStrFormatter('$%.2f$'))
+
+plt.xscale('log')
+plt.yscale('log')
+
+plt.tight_layout()
+# plt.show()
+
+plt.figure(figsize=(4,3))
+
+plt.title(r'${\rm He}^{\rm LRT}_{728/706} / {\rm He}^{\rm LRT}_{728/668} $', fontsize=fontsize_labels + 1)
+plt.xlabel(r'$T_e \: [{ \rm eV}]$', fontsize=fontsize_labels)
+plt.ylabel(r'$n_e$ [m$^{-3}$]', fontsize=fontsize_labels)
+cp = plt.contourf(Te_arr, ne_arr, He728_706_arr/He728_668_arr, levels = levels_He, cmap = 'jet')
+plt.grid(alpha = 0.3)
+plt.colorbar(cp,format=tick.FormatStrFormatter('$%.2f$'))
+
+plt.xscale('log')
+plt.yscale('log')
+
+plt.tight_layout()
+# plt.show()
+
+plt.figure(figsize=(4,3))
+
+plt.title(r'$2 * {\rm He}^{\rm LRT}_{728/706} / {\rm He}^{\rm LRT}_{728/668} $', fontsize=fontsize_labels + 1)
+plt.xlabel(r'$T_e \: [{ \rm eV}]$', fontsize=fontsize_labels)
+plt.ylabel(r'$n_e$ [m$^{-3}$]', fontsize=fontsize_labels)
+cp = plt.contourf(Te_arr, ne_arr, (2*He728_706_arr)/He728_668_arr, levels = levels_He, cmap = 'jet')
+plt.grid(alpha = 0.3)
+plt.colorbar(cp,format=tick.FormatStrFormatter('$%.2f$'))
+
+plt.xscale('log')
+plt.yscale('log')
+
+plt.tight_layout()
+# plt.show()
+
+plt.figure(figsize=(4,3))
+
+plt.title(r'${\rm He}^{\rm LRT}_{728/668} / 2 * {\rm He}^{\rm LRT}_{728/706}  $', fontsize=fontsize_labels + 1)
+plt.xlabel(r'$T_e \: [{ \rm eV}]$', fontsize=fontsize_labels)
+plt.ylabel(r'$n_e$ [m$^{-3}$]', fontsize=fontsize_labels)
+cp = plt.contourf(Te_arr, ne_arr, He728_668_arr/ (2*He728_706_arr), levels = levels_He, cmap = 'jet')
+plt.grid(alpha = 0.3)
+plt.colorbar(cp,format=tick.FormatStrFormatter('$%.2f$'))
+
+plt.xscale('log')
+plt.yscale('log')
+
+plt.tight_layout()
+plt.show()
+
 

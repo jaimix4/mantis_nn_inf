@@ -259,7 +259,7 @@ cax_cb.set_position(pos2) # set a new position
 
 # disp.plot(ax = ax_cm, cmap = 'Blues', values_format = 'd')
 
-plt.savefig('figures_paper/fig_model_test_' + 'fancy-wind-12_ensemble_DNN_6.png', dpi = 300, bbox_inches='tight', transparent = True)
+plt.savefig('figures_paper/fig_model_test_' + 'fancy-wind-12_ensemble_DNN_6.png', dpi = 600, bbox_inches='tight', transparent = True)
 
 
 

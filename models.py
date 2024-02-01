@@ -361,10 +361,10 @@ def MLP_BNN_model_book_regression_classification(n_inputs, n_outputs, num_layers
 
         
         regression_loss_Te = K.abs(y_pred[:, 0] - y_true[:, 0])*(2.0*K.pow(K.ones_like(y_true[:, 0])*0.5, y_true[:, 0]) + 1) \
-            *(y_true[:, 5] + (1 - y_true[:, 5])*(1/5))
+            *(y_true[:, 5] + (1 - y_true[:, 5])*(1/1))
 
         regression_loss_ne = K.abs(y_pred[:, 1] - y_true[:, 1])*(2.0*K.pow(K.ones_like(y_true[:, 1])*0.5, y_true[:, 1]) + 1)\
-            *(y_true[:, 5] + (1 - y_true[:, 5])*(1/5))
+            *(y_true[:, 5] + (1 - y_true[:, 5])*(1/1))
 
         # this output is ignore if it is in the non-ionized regime
         regression_loss_no = K.abs(y_pred[:, 2] - y_true[:, 2])*y_true[:, 5]*(2.0*K.pow(K.ones_like(y_true[:, 2])*0.5, y_true[:, 2]) + 1)
@@ -382,7 +382,7 @@ def MLP_BNN_model_book_regression_classification(n_inputs, n_outputs, num_layers
         class_loss = K.sparse_categorical_crossentropy(y_true[:, 5], y_pred[:, 5:]) 
 
         # pressure loss
-        physics_loss = K.mean(K.abs(2*y_pred[:, 0]*y_pred[:, 1] - 2*y_true[:, 0]*y_true[:, 1]))
+        physics_loss = K.mean(K.abs(y_pred[:, 0]*y_pred[:, 1] - y_true[:, 0]*y_true[:, 1]))
 
         # sum of all losses 
         return regression_loss + class_loss  + physics_loss 
@@ -960,6 +960,408 @@ class BNN_crazy_ensemble_DNN():
             model_merged.save(self.model_path + '_ensemble_DNN_{}_HDF5.h5'.format(num_networks), save_format='h5')
             # also 
             tf.saved_model.save(model_merged, self.model_path + '_ensemble_DNN_{}_mantis'.format(num_networks))
+
+        return model_merged
+    
+    def load_set_pre_process(self, set_label = 'TEST'):
+
+        from pathlib import Path
+        import pyarrow.parquet as pq
+
+        data_folder = self.config_params['dataset']
+        print("Getting data from folder: ", data_folder)
+
+        if Path(data_folder + set_label + '.parquet').is_file():
+
+          data_set_test = pq.read_table(data_folder + set_label + '.parquet').to_pandas()
+
+          print("----PARQUET FILES FOUND-----")
+
+        inputs_labels = self.config_params['inputs_labels']
+        outputs_labels = self.config_params['outputs_labels']
+
+        X_test = data_set_test[inputs_labels].values
+        y_test = data_set_test[outputs_labels].values
+
+        # make this self.config_params['inputs_prepro'] a numpy float array
+        self.config_params['inputs_prepro'] = np.array(self.config_params['inputs_prepro'], dtype = np.float32)
+        self.config_params['inputs_mean_params'] = np.array(self.config_params['inputs_mean_params'], dtype = np.float32)
+        self.config_params['inputs_scale_params'] = np.array(self.config_params['inputs_scale_params'], dtype = np.float32)
+
+        self.config_params['outputs_prepro'] = np.array(self.config_params['outputs_prepro'], dtype = np.float32)
+        self.config_params['outputs_min_params'] = np.array(self.config_params['outputs_min_params'], dtype = np.float32)
+        self.config_params['outputs_scale_params'] = np.array(self.config_params['outputs_scale_params'], dtype = np.float32)
+
+        X_test = (np.power(X_test, 1/self.config_params['inputs_prepro']) - self.config_params['inputs_mean_params'])/self.config_params['inputs_scale_params']
+        y_test = np.power(y_test/self.config_params['outputs_scale_params'] + self.config_params['outputs_min_params'], self.config_params['outputs_prepro'])
+
+        return X_test, y_test
+
+
+    def load_test_set(self):
+
+        from pathlib import Path
+        import pyarrow.parquet as pq
+
+        data_folder = self.config_params['dataset']
+        print("Getting data from folder: ", data_folder)
+
+        if Path(data_folder + 'TEST.parquet').is_file():
+
+          data_set_test = pq.read_table(data_folder + 'TEST.parquet').to_pandas()
+
+          print("----PARQUET FILES FOUND-----")
+
+        inputs_labels = self.config_params['inputs_labels']
+        outputs_labels = self.config_params['outputs_labels']
+
+        X_test = data_set_test[inputs_labels].values
+        y_test = data_set_test[outputs_labels].values
+
+        return X_test, y_test
+
+    def ensemble_DNN_single_input_improved(self, num_networks = 8, include_prepro = True, save_model = True):
+
+        num_networks = num_networks
+  
+        n_inputs = len(self.config_params['inputs_labels'])
+        # get rid of one output 
+        n_outputs = len(self.config_params['outputs_labels']) - 1
+        num_layers = self.config_params['num_layers']
+        num_nodes = self.config_params['num_nodes']
+        last_bayes_layer = self.config_params['last_bayes_layer']
+
+        inputs_prepo = self.config_params['inputs_prepro']
+        inputs_mean_params = self.config_params['inputs_mean_params']
+        inputs_scale_params = self.config_params['inputs_scale_params']
+
+        outputs_prepo = self.config_params['outputs_prepro']
+        outputs_min_params = self.config_params['outputs_min_params']
+        outputs_scale_params = self.config_params['outputs_scale_params']
+
+        # knowing how the output will be, we modify this to have the right number of nodes
+        # the two last are the classification outcome 
+        outputs_prepo[-1] = 1
+        outputs_min_params[-1] = 0.0
+        outputs_scale_params[-1] = 1.0
+        # no add one more 
+        outputs_prepo.append(1)
+        outputs_min_params.append(0.0)
+        outputs_scale_params.append(1.0)
+
+        act_fn = self.config_params['activation_fn']
+
+        networks_list = []
+
+        networks_input_list = []
+
+        input_single = Input(shape=(n_inputs,), name = 'input')
+        input_single_prepro = Pre_processingLayer(inputs_prepo, inputs_mean_params, inputs_scale_params)(input_single)
+
+        # NETWORK 1
+        for i in range(num_networks):
+
+            # input_single = Input(shape=(n_inputs,))
+            # POSSIBLE TO PUT PREPROCESSING HERE WITH NO INPUT LAYER 
+            # AND THEN CREATE A BIG INPUT LAYER FOR ALL THE NETWORKS
+            #x = Pre_processingLayer(inputs_prepo, inputs_mean_params, inputs_scale_params)(input_single)
+            x = Dense(num_nodes, activation=act_fn)(input_single_prepro)
+            #x = Dense(num_nodes, activation=act_fn)(x)
+            x = BatchNormalization()(x)
+            for i in range(num_layers - 2):
+                    x = Dense(num_nodes, activation=act_fn)(x)
+                    x = BatchNormalization()(x)
+            # layer that branches both outputs
+            x = Dense(last_bayes_layer, activation=act_fn)(x)
+
+            # the two outputs layers 
+            # REGRESSION
+            output_regression = Dense(n_outputs, activation = 'linear')(x)
+            # omit the last node here
+
+            # CLASSIFICATION
+            output_classification = Dense(2, activation='softmax')(x)
+
+            # CONCATENATE BOTH OUTPUTS
+            model_output = concatenate([output_regression, output_classification])
+
+
+            print(outputs_prepo)
+
+            # POST PROCESSING LAYER
+            total_output = Post_processingLayer(outputs_prepo, outputs_min_params, outputs_scale_params)(model_output)
+            
+            networks_list.append(total_output)
+            #networks_input_list.append(input_single)
+
+        merged_models = concatenate(networks_list, name = 'output')
+
+        model_merged = Model(inputs=input_single, outputs=merged_models)
+
+        model_merged.compile(loss='mae', optimizer='adam')
+
+        model_merged.summary()
+
+        print(model_merged.layers)
+
+        idx_og_model = 1
+
+        #for idx in range(2, len(model_merged.layers) - (1 + num_networks), num_networks):
+        for idx in range(2, 2*(num_layers - 1)*num_networks + num_networks + 2, num_networks):
+
+            #idx_og_model = int((idx + 1)/num_networks - 1)
+
+            for idx_layer in range(idx, idx+num_networks):
+
+                if self.model_bnn.layers[idx_og_model].__class__.__name__ != 'DenseFlipout':
+
+                    model_merged.layers[idx_layer].set_weights(self.model_bnn.layers[idx_og_model].get_weights())
+
+                else:
+
+                    sampled_weights = []
+                    sampled_weights.append(self.model_bnn.layers[idx_og_model].kernel_posterior.sample())
+                    sampled_weights.append(self.model_bnn.layers[idx_og_model].bias_posterior.sample())
+                    model_merged.layers[idx_layer].set_weights(sampled_weights)
+                    print('denseflipout transmitted')
+            
+            idx_og_model += 1
+
+        # print(model_merged.layers[idx])
+        # print('layers')
+        # print('idx if model og now')
+        # print(idx_og_model)
+
+        # putting weigths on multioutput layer
+        for idx in range(2*(num_layers - 1)*num_networks + num_networks + 2, \
+            (2*(num_layers - 1)*num_networks + num_networks + 2) + 2*num_networks, 2):
+
+            model_merged.layers[idx].set_weights(self.model_bnn.layers[idx_og_model].get_weights())
+            model_merged.layers[idx+1].set_weights(self.model_bnn.layers[idx_og_model+1].get_weights())
+
+            print(model_merged.layers[idx])
+
+
+        if save_model:
+            
+            model_merged.save(self.model_path + '_ensemble_DNN_{}'.format(num_networks))
+            # also save model as .h5
+            model_merged.save(self.model_path + '_ensemble_DNN_{}_HDF5.h5'.format(num_networks), save_format='h5')
+            # also 
+            tf.saved_model.save(model_merged, self.model_path + '_ensemble_DNN_{}_mantis'.format(num_networks))
+
+        return model_merged
+
+# PREPROCESSING LAYER FOR ACCEPTING ABSOLUTE EMISSIONS
+# DIRECTLY FROM TOMOGRAPHIC INVERSIONS 
+class Pre_processingLayer_ABS_EMIS(Layer):
+
+    def __init__(self, inputs_prepo, inputs_mean_params, inputs_scale_params, **kwargs):
+
+        super(Pre_processingLayer_ABS_EMIS, self).__init__(**kwargs)
+        self.inputs_prepo = tf.constant(inputs_prepo, dtype=tf.float32)
+        self.inputs_mean_params = tf.constant(inputs_mean_params, dtype=tf.float32)
+        self.inputs_scale_params = tf.constant(inputs_scale_params, dtype=tf.float32)
+
+    def call(self, inputs):
+
+        # applying compression if needed
+
+        ratios_He_728_706 = inputs[:, 2]/inputs[:, 3]
+        ratios_He_706_668 = inputs[:, 2]/inputs[:, 4]
+
+        inputs_with_ratio = tf.stack([inputs[:, 0], inputs[:,1], ratios_He_728_706, ratios_He_706_668], axis=-1)
+
+        return ((tf.pow(inputs_with_ratio, 1/self.inputs_prepo) - self.inputs_mean_params)/self.inputs_scale_params)
+
+
+    def get_config(self):
+        config = super(Pre_processingLayer_ABS_EMIS, self).get_config()
+        config.update({
+            'inputs_prepo': self.inputs_prepo.numpy().tolist(),
+            'inputs_mean_params': self.inputs_mean_params.numpy().tolist(),
+            'inputs_scale_params': self.inputs_scale_params.numpy().tolist(),
+        })
+        return config
+
+
+class BNN_GPU_tune_ensemble_DNN():
+
+    def __init__(self, model_path):
+
+        self.model_path = model_path
+
+        self.model_bnn, self.config_params = load_model(self.model_path)
+
+    def model_bnn(self):
+        return self.model_bnn
+
+    def config_params(self):
+
+        return self.config_params
+
+
+    def ensemble_DNN_single_input(self, num_networks = 8, include_prepro = True, save_model = True):
+
+        num_networks = num_networks
+  
+        n_inputs = len(self.config_params['inputs_labels'])
+        # get rid of one output 
+        n_outputs = len(self.config_params['outputs_labels']) - 1
+        num_layers = self.config_params['num_layers']
+        num_nodes = self.config_params['num_nodes']
+        last_bayes_layer = self.config_params['last_bayes_layer']
+
+        inputs_prepo = self.config_params['inputs_prepro']
+        inputs_mean_params = self.config_params['inputs_mean_params']
+        inputs_scale_params = self.config_params['inputs_scale_params']
+
+        outputs_prepo = self.config_params['outputs_prepro']
+        outputs_min_params = self.config_params['outputs_min_params']
+        outputs_scale_params = self.config_params['outputs_scale_params']
+
+        # knowing how the output will be, we modify this to have the right number of nodes
+        # the two last are the classification outcome 
+        outputs_prepo[-1] = 1
+        outputs_min_params[-1] = 0.0
+        outputs_scale_params[-1] = 1.0
+        # no add one more 
+        outputs_prepo.append(1)
+        outputs_min_params.append(0.0)
+        outputs_scale_params.append(1.0)
+
+        act_fn = self.config_params['activation_fn']
+
+        networks_list = []
+
+        networks_input_list = []
+
+        # HERE YOU DECLARE AS INPUTS ALL THE ABSOLUTE EMISSIONS Da, Dg, He728, He706, He668
+        n_inputs_abs_MANTIS = 5
+        input_single = Input(shape=(n_inputs_abs_MANTIS,), name = 'input')
+        # HERE THE PREPROCESSING LAYER THAT DOES THE DIVISION AND ALL OF THAT 
+        input_single_prepro = Pre_processingLayer_ABS_EMIS(inputs_prepo, inputs_mean_params, inputs_scale_params)(input_single)
+        # code for figuring out if self.model_bnn has batch normalization layers
+        batch_norm_present = False
+        for idx in range(len(self.model_bnn.layers)):
+            if self.model_bnn.layers[idx].__class__.__name__ == 'BatchNormalization':
+                batch_norm_present = True
+
+
+        print('batch norm present')
+        print(batch_norm_present)
+
+        # NETWORK 1
+        for i in range(num_networks):
+
+            # input_single = Input(shape=(n_inputs,))
+            # POSSIBLE TO PUT PREPROCESSING HERE WITH NO INPUT LAYER 
+            # AND THEN CREATE A BIG INPUT LAYER FOR ALL THE NETWORKS
+            #x = Pre_processingLayer(inputs_prepo, inputs_mean_params, inputs_scale_params)(input_single)
+            x = Dense(num_nodes, activation=act_fn)(input_single_prepro)
+            #x = Dense(num_nodes, activation=act_fn)(x)
+            if batch_norm_present:
+                x = BatchNormalization()(x)
+            for i in range(num_layers - 2):
+                    x = Dense(num_nodes, activation=act_fn)(x)
+                    if batch_norm_present:
+                        x = BatchNormalization()(x)
+            # layer that branches both outputs
+            x = Dense(last_bayes_layer, activation=act_fn)(x)
+
+            # the two outputs layers 
+            # REGRESSION
+            output_regression = Dense(n_outputs, activation = 'linear')(x)
+            # omit the last node here
+
+            # CLASSIFICATION
+            output_classification = Dense(2, activation='softmax')(x)
+
+            # CONCATENATE BOTH OUTPUTS
+            model_output = concatenate([output_regression, output_classification])
+
+
+            print(outputs_prepo)
+
+            # POST PROCESSING LAYER
+            total_output = Post_processingLayer(outputs_prepo, outputs_min_params, outputs_scale_params)(model_output)
+            
+            networks_list.append(total_output)
+            #networks_input_list.append(input_single)
+
+        merged_models = concatenate(networks_list, name = 'output')
+
+        model_merged = Model(inputs=input_single, outputs=merged_models)
+
+        model_merged.compile(loss='mse', optimizer='adam')
+
+        model_merged.summary()
+
+        print(model_merged.layers)
+
+        idx_og_model = 1
+
+        #for idx in range(2, len(model_merged.layers) - (1 + num_networks), num_networks):
+        some_number = 1
+        if batch_norm_present:
+            some_number = 0
+
+        for idx in range(2, 2*(num_layers - 1)*num_networks + num_networks + 2 - some_number*num_networks*(num_layers - 1), num_networks):
+
+            #idx_og_model = int((idx + 1)/num_networks - 1)
+
+            for idx_layer in range(idx, idx+num_networks):
+
+                if self.model_bnn.layers[idx_og_model].__class__.__name__ != 'DenseFlipout':
+
+                    model_merged.layers[idx_layer].set_weights(self.model_bnn.layers[idx_og_model].get_weights())
+
+                else:
+
+                    sampled_weights = []
+                    sampled_weights.append(self.model_bnn.layers[idx_og_model].kernel_posterior.sample())
+                    sampled_weights.append(self.model_bnn.layers[idx_og_model].bias_posterior.sample())
+                    model_merged.layers[idx_layer].set_weights(sampled_weights)
+                    print('denseflipout transmitted')
+            
+            idx_og_model += 1
+
+        # print(model_merged.layers[idx])
+        # print('layers')
+        # print('idx if model og now')
+        # print(idx_og_model)
+            
+        print("UNTIL HERE FINE")
+
+        # putting weigths on multioutput layer
+        for idx in range(2*(num_layers - 1)*num_networks + num_networks + 2 - some_number*num_networks*(num_layers - 1), \
+            (2*(num_layers - 1)*num_networks + num_networks + 2) + 2*num_networks - some_number*num_networks*(num_layers - 1), 2):
+
+            if self.model_bnn.layers[idx_og_model].__class__.__name__ == 'DenseFlipout':
+
+                # this is for output bayesian
+                sampled_weights = []
+                sampled_weights.append(self.model_bnn.layers[idx_og_model].kernel_posterior.sample())
+                sampled_weights.append(self.model_bnn.layers[idx_og_model].bias_posterior.sample())
+                model_merged.layers[idx].set_weights(sampled_weights)
+
+            else:
+
+                model_merged.layers[idx].set_weights(self.model_bnn.layers[idx_og_model].get_weights())
+
+
+            model_merged.layers[idx+1].set_weights(self.model_bnn.layers[idx_og_model+1].get_weights())
+
+            print(model_merged.layers[idx])
+
+
+        if save_model:
+            
+            model_merged.save(self.model_path + '_GPU_opt_ensemble_DNN_{}'.format(num_networks))
+            # also save model as .h5
+            model_merged.save(self.model_path + '_GPU_opt_ensemble_DNN_{}_HDF5.h5'.format(num_networks), save_format='h5')
+            # also 
+            tf.saved_model.save(model_merged, self.model_path + '_GPU_opt_ensemble_DNN_{}_mantis'.format(num_networks))
 
         return model_merged
     
