@@ -1184,7 +1184,40 @@ class Pre_processingLayer_ABS_EMIS(Layer):
         })
         return config
 
+class Post_processingLayer_WITH_MEAN(Layer):
 
+    def __init__(self, outputs_prepo, outputs_min_params, outputs_scale_params, num_networks, **kwargs):
+
+        super(Post_processingLayer_WITH_MEAN, self).__init__(**kwargs)
+        self.outputs_prepo = tf.constant(outputs_prepo, dtype=tf.float32)
+        self.outputs_min_params = tf.constant(outputs_min_params, dtype=tf.float32)
+        self.outputs_scale_params = tf.constant(outputs_scale_params, dtype=tf.float32)
+        self.num_networks = num_networks
+
+    def call(self, inputs):
+
+        # do mean of all 
+
+        # Reshape the inputs so that the second dimension corresponds to the number of networks
+        reshaped_inputs = tf.reshape(inputs, [-1, self.num_networks, 7])
+
+        # Compute the mean across the second dimension
+        mean_inputs = tf.reduce_mean(reshaped_inputs, axis=1)
+
+        # applying compression if needed
+        return tf.pow(mean_inputs/self.outputs_scale_params + self.outputs_min_params, self.outputs_prepo)
+
+    def get_config(self):
+        config = super(Post_processingLayer_WITH_MEAN, self).get_config()
+        config.update({
+            'outputs_prepo': self.outputs_prepo.numpy().tolist(),
+            'outputs_min_params': self.outputs_min_params.numpy().tolist(),
+            'outputs_scale_params': self.outputs_scale_params.numpy().tolist(),
+            'num_networks': self.num_networks
+            #'name': self.name
+        })
+        return config
+    
 class BNN_GPU_tune_ensemble_DNN():
 
     def __init__(self, model_path):
@@ -1280,16 +1313,34 @@ class BNN_GPU_tune_ensemble_DNN():
             # CONCATENATE BOTH OUTPUTS
             model_output = concatenate([output_regression, output_classification])
 
-
             print(outputs_prepo)
-
-            # POST PROCESSING LAYER
-            total_output = Post_processingLayer(outputs_prepo, outputs_min_params, outputs_scale_params)(model_output)
+            # ########################################
+            # # This for post_processing every output
+            # # POST PROCESSING LAYER
+            # total_output = Post_processingLayer(outputs_prepo, outputs_min_params, outputs_scale_params)(model_output)
             
-            networks_list.append(total_output)
-            #networks_input_list.append(input_single)
+            # networks_list.append(total_output)
+            # #networks_input_list.append(input_single)
+            # ########################################
 
-        merged_models = concatenate(networks_list, name = 'output')
+            ########################################
+            # This for taking the average of the outputs in pre process form
+            networks_list.append(model_output)
+            ########################################
+
+        # ########################################
+        # # This for post_processing every output
+        # merged_models = concatenate(networks_list, name = 'output')
+        # ########################################
+            
+        ########################################
+        # This for taking the average of the outputs in pre process form
+        merged_models_n_networks = concatenate(networks_list)
+        
+        merged_models = Post_processingLayer_WITH_MEAN(outputs_prepo, outputs_min_params, \
+                outputs_scale_params, num_networks, name = 'output')(merged_models_n_networks)
+        ########################################
+
 
         model_merged = Model(inputs=input_single, outputs=merged_models)
 

@@ -2,7 +2,7 @@
 # 09-09-2022
 
 import numpy as np
-from cherab.core.atomic import deuterium, helium
+from cherab.core.atomic import deuterium
 from cherab.openadas import OpenADAS
 
 adas = OpenADAS()
