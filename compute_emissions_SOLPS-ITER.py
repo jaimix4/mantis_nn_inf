@@ -25,7 +25,7 @@ plasma_parms[:, 3] = np.reshape(data['plasma_params_simul']['nHe'][0][0], (len_a
 plasma_parms[:, 4] = np.reshape(data['plasma_params_simul']['nHeplus'][0][0], (len_arr, ))
 
 
-# 'emi_3-2','emi_4-2','emi_5-2','emi_7-2','Irate','Rrate','728/668norec','706/668norec','He728norec','He706norec','He668norec','728/668','706/668','He728','He706','He668','Brec3/B3'
+# 'emi_3-2','emi_4-2','emi_5-2','emi_7-2','Irate','Rrate','728/706norec','706/668norec','He728norec','He706norec','He668norec','728/706','706/668','He728','He706','He668','Brec3/B3'
 # '   0   ','   1   ','   2   ','   3   ','  4  ','  5  ','    6       ','    7       ','    8     ','    9     ','    10    ','  11   ','  12   ','  13 ','  14 ','  15 ','  16    '      
 emis = np.zeros((len_arr, 17))
 
@@ -73,11 +73,17 @@ emis[:, 11] = emis[:, 13]/emis[:, 14]
 # 728/668
 emis[:, 12] = emis[:, 13]/emis[:, 15]
 
+# copy for neural network before reshaping 
+emis_nn = emis.copy()
+
+# save array as numpy array
+np.save('SOLPS-ITER/forward_emis_adas_goto_SOLPS-ITER_sims.npy', emis_nn)
+
 emis = emis.reshape((original_shape[0], original_shape[1], 17))
 print('jaime')
 print(emis.shape)
 
-# save data to .mat
+# save data to .mat for matlab 
 sio.savemat('SOLPS-ITER/forward_emis_adas_goto_SOLPS-ITER_sims.mat', \
     {'emi_3_2': emis[:,:,0], \
         'emi_4_2': emis[:,:,1], \
@@ -101,6 +107,9 @@ print("outputs saved")
 
 
 # Neural network thingy
+
+
+
 
 
 

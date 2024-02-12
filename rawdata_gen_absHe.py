@@ -3,6 +3,8 @@ import pandas as pd
 from CRM_ADAS import Deuterium
 from scipy.stats import qmc
 import subprocess
+import tempfile
+import os 
 
 class data_gen:
 
@@ -63,9 +65,9 @@ class data_gen:
         print('number of samples after applying pressure limit: {}'.format(self.samples_real_space.shape[0]))
 
         # Generate pandas dataframe
-        # 'emi_3-2','emi_4-2','emi_5-2','emi_7-2','Te','ne','no','    nHe   ','Irate','Rrate','CXrate','Pexc','Prec', '728/668', '706/668', 'He728','He706', 'He668', 'Brec3/B3'
-        # '   0   ','   1   ','   2   ','   3   ','4 ',' 5 ','6 ','    7    ','  8  ','  9  ','  10  ',' 11 ',' 12 ', '  13   ', '  14   ', '  15 ','  16 ', '  17 ','  18     '      
-        param_num = 19
+        # 'emi_3-2','emi_4-2','emi_5-2','emi_7-2','Te','ne','no',' nHe ',' nHe+', 'Irate','Rrate','CXrate','Pexc','Prec', '728/668', '706/668', 'He728','He706', 'He668', 'Brec3/B3'
+        # '   0   ','   1   ','   2   ','   3   ','4 ',' 5','6 ','  7  ','  8  ',  '  9 ','  10 ',' 11   ',' 12 ','  13 ','  14    ','  15   ','  16  ','  17 ','  18   ','  19   '    
+        param_num = 20
 
         self.data = np.zeros((self.samples_real_space.shape[0], param_num))
 
@@ -79,14 +81,15 @@ class data_gen:
             self.data[idx, 7] = (np.exp(np.random.uniform(np.log(0.01), np.log(50)))/100) * Te_ne_no[2]
 
             # rates 
-            self.data[idx, 8:13] = self.deu_crm.compute_rates(Te_ne_no)
+            self.data[idx, 9:14] = self.deu_crm.compute_rates(Te_ne_no)
 
             # emissivities
-            self.data[idx, :4], self.data[idx, 18] = self.deu_crm.compute_emissivites_ratio_B3rec(Te_ne_no)
+            self.data[idx, :4], self.data[idx, -1] = self.deu_crm.compute_emissivites_ratio_B3rec(Te_ne_no)
 
             # sum of recombination and ionization rates
             # gone, stupid idea
             #self.data[idx, -1] = self.data[idx, 8] + self.data[idx, 9]
+
 
         # Applying the Irate limit and Rrate limit
         # Irate limit: 1e18 - 1e25
@@ -114,10 +117,10 @@ class data_gen:
         #         self.data[:,-2] <= B3rec_upper_limit)]]
 
         self.data = self.data[[a and b and c and d for a, b, c, d in \
-            zip(self.data[:,-2] >= B3rec_lower_limit, \
-                self.data[:,-2] <= B3rec_upper_limit, \
-                    self.data[:,9] >= Rrate_lower_limit, \
-                        self.data[:,8] >= Irate_lower_limit)]]
+            zip(self.data[:,-1] >= B3rec_lower_limit, \
+                self.data[:,-1] <= B3rec_upper_limit, \
+                    self.data[:,10] >= Rrate_lower_limit, \
+                        self.data[:,9] >= Irate_lower_limit)]]
 
         
         # Putting all values of Irate < 1e19 to 1e19
@@ -136,31 +139,53 @@ class data_gen:
         # BUT I HAVE NO IDEA HOW C CAN READ PARQUET FILES SO... 
 
         # introducing He ratios using the c file with the goto model
-        nam_tempfile_input = 'temp_tene_cfile_absHe.csv'
-        nam_tempfile_output = 'temp_tene_cfile_out_absHe.csv'
-        np.savetxt(nam_tempfile_input, self.data[:, 4:6], delimiter=',')
+        # nam_tempfile_input = 'temp_cfile_absHe.csv'
+        # nam_tempfile_output = 'temp_cfile_out_absHe.csv'
+        # np.savetxt(nam_tempfile_input, self.data[:, 4:6], delimiter=',')
+
+        fd, temp_input_path = tempfile.mkstemp(suffix='.csv')
+        os.close(fd)  # Close the file descriptor returned by mkstemp
+        np.savetxt(temp_input_path, self.data[:, 4:6], delimiter=',')
+
+        fd, temp_output_path = tempfile.mkstemp(suffix='.csv')
+        os.close(fd)  # Close the file descriptor returned by mkstemp
+
+        # with tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp_input:
+        #     np.savetxt(temp_input, self.data[:, 4:6], delimiter=',')
+        #     temp_input_path = temp_input.name  # Save the path for later use
+
+        # with tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp_output:
+        #     temp_output_path = temp_output.name  # Save the path for later use
 
         print('\nOutput of the c file: ')
-        subprocess.run(['./emissions_jaime', nam_tempfile_input, nam_tempfile_output])
-        print('\n c file for He ratios run done. Name of temporary file for data: {} \n this file can be ignored or deleted'.format(nam_tempfile_input))
+        subprocess.run(['./emissions_jaime', temp_input_path, temp_output_path])
+        print('\n c file for He ratios run done. Name of temporary file for data: {} \n this file can be ignored or deleted'.format(temp_output_path))
 
-        arr = np.loadtxt(nam_tempfile_output, delimiter=",", dtype=np.float64)
-        
-        # 728/706 
-        self.data[:, 13] = arr[:, 2]/arr[:, 3]
-        # 728/668
-        self.data[:, 14] = arr[:, 2]/arr[:, 4]
+        arr = np.loadtxt(temp_output_path, delimiter=",", dtype=np.float64)
+
+        # nHe+\
+        log_arr = np.random.uniform(low=np.log10(1e16), high=np.log10(1e18), size=self.data[:, 8].shape[0])
+        self.data[:, 8] = np.power(10, log_arr) #np.random.uniform(low=1e16, high=1e18, size=self.data[:, 8].shape[0]) #(np.exp(np.random.uniform(np.log(0.01), np.log(50)))/100) * self.data[:, 6]
 
         # He728
-        self.data[:, 15] = (self.data[:,5] * self.data[:,7] * arr[:, 2]) + (self.data[:,5] * 1e17 * arr[:, 5])
+        self.data[:, 16] = (self.data[:,5] * self.data[:,7] * arr[:, 2]) + (self.data[:,5] * self.data[:,8] * arr[:, 5])
         # He706
-        self.data[:, 16] = (self.data[:,5] * self.data[:,7] * arr[:, 3]) + (self.data[:,5] * 1e17 * arr[:, 6])
+        self.data[:, 17] = (self.data[:,5] * self.data[:,7] * arr[:, 3]) + (self.data[:,5] * self.data[:,8] * arr[:, 6])
         # He668
-        self.data[:, 17] = (self.data[:,5] * self.data[:,7] * arr[:, 4]) + (self.data[:,5] * 1e17 * arr[:, 7])
+        self.data[:, 18] = (self.data[:,5] * self.data[:,7] * arr[:, 4]) + (self.data[:,5] * self.data[:,8] * arr[:, 7])
+
+        # 728/706 
+        self.data[:, 14] = self.data[:, 16] / self.data[:, 17] #arr[:, 2]/arr[:, 3]
+        # 728/668
+        self.data[:, 15] = self.data[:, 16] / self.data[:, 18] 
+
+        # remove temproary files
+        os.remove(temp_input_path)
+        os.remove(temp_output_path)
 
     def get_data_pd(self):
 
-        self.df_data = pd.DataFrame(self.data, columns=['emi_3-2', 'emi_4-2', 'emi_5-2', 'emi_7-2', 'Te', 'ne', 'no', 'nHe', 'Irate', 'Rrate', 'CXrate', 'Pexc', 'Prec', '728/706', '728/668', 'He728', 'He706', 'He668', 'Brec3/B3'])
+        self.df_data = pd.DataFrame(self.data, columns=['emi_3-2', 'emi_4-2', 'emi_5-2', 'emi_7-2', 'Te', 'ne', 'no', 'nHe', 'nHe+', 'Irate', 'Rrate', 'CXrate', 'Pexc', 'Prec', '728/706', '728/668', 'He728', 'He706', 'He668', 'Brec3/B3'])
         self.pd_created = True
         return self.df_data
 

@@ -6,6 +6,12 @@ import scipy.io as io
 # your_script.py
 import sys
 
+# activate artur env
+# source /home/perek/NNinversion/.venv/bin/activate
+
+# for my env
+# source /home/caballero/.venv/bin/activate
+
 # Access command-line arguments
 arguments = sys.argv[1:]
 
